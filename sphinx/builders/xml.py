@@ -1,69 +1,69 @@
-# -*- coding: utf-8 -*-
-"""
-    sphinx.builders.xml
-    ~~~~~~~~~~~~~~~~~~~
+"""Docutils-native XML and pseudo-XML builders."""
 
-    Docutils-native XML and pseudo-XML builders.
+from __future__ import annotations
 
-    :copyright: Copyright 2007-2015 by the Sphinx team, see AUTHORS.
-    :license: BSD, see LICENSE for details.
-"""
-
-import codecs
-from os import path
+from typing import TYPE_CHECKING
 
 from docutils import nodes
-from docutils.io import StringOutput
+from docutils.writers.docutils_xml import XMLTranslator
 
 from sphinx.builders import Builder
-from sphinx.util.osutil import ensuredir, os_path
-from sphinx.writers.xml import XMLWriter, PseudoXMLWriter
+from sphinx.locale import __
+from sphinx.util import logging
+from sphinx.util.osutil import _last_modified_time
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from sphinx.application import Sphinx
+    from sphinx.util.typing import ExtensionMetadata
+
+logger = logging.getLogger(__name__)
 
 
 class XMLBuilder(Builder):
-    """
-    Builds Docutils-native XML.
-    """
+    """Builds Docutils-native XML."""
+
     name = 'xml'
     format = 'xml'
+    epilog = __('The XML files are in %(outdir)s.')
+
     out_suffix = '.xml'
     allow_parallel = True
 
-    _writer_class = XMLWriter
+    default_translator_class = XMLTranslator
 
-    def init(self):
+    def init(self) -> None:
         pass
 
-    def get_outdated_docs(self):
+    def get_outdated_docs(self) -> Iterator[str]:
         for docname in self.env.found_docs:
             if docname not in self.env.all_docs:
                 yield docname
                 continue
-            targetname = self.env.doc2path(docname, self.outdir,
-                                           self.out_suffix)
+            targetname = self.outdir / (docname + self.out_suffix)
             try:
-                targetmtime = path.getmtime(targetname)
+                targetmtime = _last_modified_time(targetname)
             except Exception:
                 targetmtime = 0
             try:
-                srcmtime = path.getmtime(self.env.doc2path(docname))
+                srcmtime = _last_modified_time(self.env.doc2path(docname))
                 if srcmtime > targetmtime:
                     yield docname
-            except EnvironmentError:
+            except OSError:
                 # source doesn't exist anymore
                 pass
 
-    def get_target_uri(self, docname, typ=None):
+    def get_target_uri(self, docname: str, typ: str | None = None) -> str:
         return docname
 
-    def prepare_writing(self, docnames):
-        self.writer = self._writer_class(self)
-
-    def write_doc(self, docname, doctree):
+    def write_doc(self, docname: str, doctree: nodes.document) -> None:
         # work around multiple string % tuple issues in docutils;
         # replace tuples in attribute values with lists
         doctree = doctree.deepcopy()
-        for node in doctree.traverse(nodes.Element):
+        for domain in self.env.domains.sorted():
+            doctree[f'xmlns:{domain.name}'] = 'https://www.sphinx-doc.org/'
+        for node in doctree.findall(nodes.Element):
             for att, value in node.attributes.items():
                 if isinstance(value, tuple):
                     node.attributes[att] = list(value)
@@ -72,29 +72,50 @@ class XMLBuilder(Builder):
                     for i, val in enumerate(value):
                         if isinstance(val, tuple):
                             value[i] = list(val)
-        destination = StringOutput(encoding='utf-8')
-        self.writer.write(doctree, destination)
-        outfilename = path.join(self.outdir, os_path(docname) + self.out_suffix)
-        ensuredir(path.dirname(outfilename))
+        output = self._translate(doctree)
+        out_file_name = self.outdir / (docname + self.out_suffix)
+        out_file_name.parent.mkdir(parents=True, exist_ok=True)
         try:
-            f = codecs.open(outfilename, 'w', 'utf-8')
-            try:
-                f.write(self.writer.output)
-            finally:
-                f.close()
-        except (IOError, OSError) as err:
-            self.warn("error writing file %s: %s" % (outfilename, err))
+            out_file_name.write_text(output, encoding='utf-8')
+        except OSError as err:
+            logger.warning(__('error writing file %s: %s'), out_file_name, err)
 
-    def finish(self):
+    def _translate(self, doctree: nodes.document) -> str:
+        doctree.settings.newlines = doctree.settings.indents = self.config.xml_pretty
+        doctree.settings.xml_declaration = True
+        doctree.settings.doctype_declaration = True
+
+        # copied from docutils.writers.docutils_xml.Writer.translate()
+        # so that we can override the translator class
+        visitor: XMLTranslator = self.create_translator(doctree)  # type: ignore[assignment]
+        doctree.walkabout(visitor)
+        return ''.join(visitor.output)
+
+    def finish(self) -> None:
         pass
 
 
 class PseudoXMLBuilder(XMLBuilder):
-    """
-    Builds pseudo-XML for display purposes.
-    """
+    """Builds pseudo-XML for display purposes."""
+
     name = 'pseudoxml'
     format = 'pseudoxml'
+    epilog = __('The pseudo-XML files are in %(outdir)s.')
+
     out_suffix = '.pseudoxml'
 
-    _writer_class = PseudoXMLWriter
+    def _translate(self, doctree: nodes.document) -> str:
+        return doctree.pformat()
+
+
+def setup(app: Sphinx) -> ExtensionMetadata:
+    app.add_builder(XMLBuilder)
+    app.add_builder(PseudoXMLBuilder)
+
+    app.add_config_value('xml_pretty', True, 'env', types=frozenset({bool}))
+
+    return {
+        'version': 'builtin',
+        'parallel_read_safe': True,
+        'parallel_write_safe': True,
+    }

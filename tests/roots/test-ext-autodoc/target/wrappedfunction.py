@@ -1,0 +1,19 @@
+from __future__ import annotations
+
+from contextlib import contextmanager
+from functools import lru_cache
+from typing import (  # ruff: ignore[typing-only-standard-library-import, deprecated-import]
+    Generator,
+)
+
+
+@lru_cache(maxsize=None)  # ruff: ignore[lru-cache-with-maxsize-none]
+def slow_function(message, timeout):
+    """This function is slow."""
+    print(message)
+
+
+@contextmanager
+def feeling_good(x: int, y: int) -> Generator:
+    """You'll feel better in this context!"""
+    yield

@@ -2,7 +2,8 @@
 
 Admonitions
 ==================
-.. #1206 gettext did not translate admonition directive's title
+.. https://github.com/sphinx-doc/sphinx/issues/1206
+   gettext did not translate admonition directive's title
 
 .. attention:: attention title
 
@@ -41,6 +42,10 @@ Admonitions
    warning body
 
 .. admonition:: admonition title
+
+   admonition body
+
+.. admonition:: 1. admonition title
 
    admonition body
 

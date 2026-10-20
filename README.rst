@@ -1,81 +1,63 @@
-=================
-README for Sphinx
-=================
+========
+ Sphinx
+========
 
-This is the Sphinx documentation generator, see http://sphinx-doc.org/.
+.. image:: https://img.shields.io/pypi/v/sphinx.svg
+   :target: https://pypi.org/project/Sphinx/
+   :alt: Package on PyPI
 
+.. image:: https://github.com/sphinx-doc/sphinx/actions/workflows/main.yml/badge.svg
+   :target: https://github.com/sphinx-doc/sphinx/actions/workflows/main.yml
+   :alt: Build Status
 
-Installing
-==========
+.. image:: https://readthedocs.org/projects/sphinx/badge/?version=master
+   :target: https://www.sphinx-doc.org/
+   :alt: Documentation Status
 
-Install from PyPI to use stable version::
+.. image:: https://img.shields.io/badge/License-BSD%202--Clause-blue.svg
+   :target: https://opensource.org/licenses/BSD-2-Clause
+   :alt: BSD 2 Clause
+
+**Sphinx makes it easy to create intelligent and beautiful documentation.**
+
+Sphinx uses reStructuredText as its markup language, and many of its strengths
+come from the power and straightforwardness of reStructuredText and its parsing
+and translating suite, the Docutils.
+
+Features
+========
+
+* **Output formats**: HTML, PDF, plain text, EPUB, TeX, manual pages, and more
+* **Extensive cross-references**: semantic markup and automatic links
+  for functions, classes, glossary terms and similar pieces of information
+* **Hierarchical structure**: easy definition of a document tree, with automatic
+  links to siblings, parents and children
+* **Automatic indices**: general index as well as a module index
+* **Code highlighting**: automatic highlighting using the Pygments highlighter
+* **Templating**: Flexible HTML output using the Jinja 2 templating engine
+* **Extension ecosystem**: Many extensions are available, for example for
+  automatic function documentation or working with Jupyter notebooks.
+* **Language Support**: Python, C, C++, JavaScript, mathematics, and many other
+  languages through extensions.
+
+For more information, refer to `the documentation`_.
+
+Installation
+============
+
+The following command installs Sphinx from the `Python Package Index`_. You will
+need a working installation of Python and pip.
+
+.. code-block:: shell
 
    pip install -U sphinx
-
-Install from PyPI to use beta version::
-
-   pip install -U --pre sphinx
-
-Install from newest dev version in stable branch::
-
-   pip install git+https://github.com/sphinx-doc/sphinx@stable
-
-Install from newest dev version in master branch::
-
-   pip install git+https://github.com/sphinx-doc/sphinx
-
-Install from cloned source::
-
-   pip install .
-
-Install from cloned source as editable::
-
-   pip install -e .
-
-
-Reading the docs
-================
-
-After installing::
-
-   cd doc
-   make html
-
-Then, direct your browser to ``_build/html/index.html``.
-
-Or read them online at <http://sphinx-doc.org/>.
-
-
-Testing
-=======
-
-To run the tests with the interpreter available as ``python``, use::
-
-    make test
-
-If you want to use a different interpreter, e.g. ``python3``, use::
-
-    PYTHON=python3 make test
-
-Continuous testing runs on travis:
-
-.. image:: https://travis-ci.org/sphinx-doc/sphinx.svg?branch=master
-   :target: https://travis-ci.org/sphinx-doc/sphinx
-
 
 Contributing
 ============
 
-#. Check for open issues or open a fresh issue to start a discussion around a
-   feature idea or a bug.
-#. If you feel uncomfortable or uncertain about an issue or your changes, feel
-   free to email sphinx-dev@googlegroups.com.
-#. Fork the repository on GitHub https://github.com/sphinx-doc/sphinx
-   to start making your changes to the **master** branch for next major
-   version, or **stable** branch for next minor version.
-#. Write a test which shows that the bug was fixed or that the feature works
-   as expected.  Use ``make test`` to run the test suite.
-#. Send a pull request and bug the maintainer until it gets merged and
-   published.  Make sure to add yourself to AUTHORS
-   <https://github.com/sphinx-doc/sphinx/blob/master/AUTHORS> and the change to
-   CHANGES <https://github.com/sphinx-doc/sphinx/blob/master/CHANGES>.
+We appreciate all contributions! Refer to `the contributors guide`_ for
+information.
+
+.. _the documentation: https://www.sphinx-doc.org/
+.. _the contributors guide: https://www.sphinx-doc.org/en/master/internals/contributing.html
+.. _Python Package Index: https://pypi.org/project/Sphinx/

@@ -1,39 +1,36 @@
-# -*- coding: utf-8 -*-
-## set this by test
-# import os
+# set this by test
 # import sys
-# sys.path.insert(0, os.path.abspath('.'))
+# from pathlib import Path
+# sys.path.insert(0, str(Path.cwd().resolve()))
 
-from sphinx.writers.html import HTMLTranslator
+from docutils.writers.docutils_xml import XMLTranslator
+
+from sphinx.writers.html import HTML5Translator
 from sphinx.writers.latex import LaTeXTranslator
 from sphinx.writers.manpage import ManualPageTranslator
 from sphinx.writers.texinfo import TexinfoTranslator
 from sphinx.writers.text import TextTranslator
-from sphinx.writers.websupport import WebSupportTranslator
-from docutils.writers.docutils_xml import XMLTranslator
-
 
 project = 'test'
-master_doc = 'index'
 
 
-class ConfHTMLTranslator(HTMLTranslator):
+class ConfHTMLTranslator(HTML5Translator):
     pass
 
 
-class ConfDirHTMLTranslator(HTMLTranslator):
+class ConfDirHTMLTranslator(HTML5Translator):
     pass
 
 
-class ConfSingleHTMLTranslator(HTMLTranslator):
+class ConfSingleHTMLTranslator(HTML5Translator):
     pass
 
 
-class ConfPickleTranslator(HTMLTranslator):
+class ConfPickleTranslator(HTML5Translator):
     pass
 
 
-class ConfJsonTranslator(HTMLTranslator):
+class ConfJsonTranslator(HTML5Translator):
     pass
 
 
@@ -50,10 +47,6 @@ class ConfTexinfoTranslator(TexinfoTranslator):
 
 
 class ConfTextTranslator(TextTranslator):
-    pass
-
-
-class ConfWebSupportTranslator(WebSupportTranslator):
     pass
 
 
@@ -75,6 +68,5 @@ def setup(app):
     app.set_translator('man', ConfManualPageTranslator)
     app.set_translator('texinfo', ConfTexinfoTranslator)
     app.set_translator('text', ConfTextTranslator)
-    app.set_translator('websupport', ConfWebSupportTranslator)
     app.set_translator('xml', ConfXMLTranslator)
     app.set_translator('pseudoxml', ConfPseudoXMLTranslator)

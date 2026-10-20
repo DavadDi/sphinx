@@ -1,79 +1,81 @@
-PYTHON ?= python
+PYTHON ?= python3
 
-.PHONY: all check clean clean-pyc clean-patchfiles clean-backupfiles \
-        clean-generated pylint reindent test covertest build convert-utils
+.PHONY: all
+all: format style-check type-check doclinter test
 
-DONT_CHECK = -i build -i dist -i sphinx/style/jquery.js \
-             -i sphinx/pycode/pgen2 -i sphinx/util/smartypants.py \
-             -i .ropeproject -i doc/_build -i tests/path.py \
-             -i tests/coverage.py -i env -i utils/convert.py \
-             -i sphinx/search/da.py \
-             -i sphinx/search/de.py \
-             -i sphinx/search/en.py \
-             -i sphinx/search/es.py \
-             -i sphinx/search/fi.py \
-             -i sphinx/search/fr.py \
-             -i sphinx/search/hu.py \
-             -i sphinx/search/it.py \
-             -i sphinx/search/ja.py \
-             -i sphinx/search/nl.py \
-             -i sphinx/search/no.py \
-             -i sphinx/search/pt.py \
-             -i sphinx/search/ro.py \
-             -i sphinx/search/ru.py \
-             -i sphinx/search/sv.py \
-             -i sphinx/search/tr.py \
-             -i utils/reindent3.py -i utils/check_sources3.py -i .tox
+.PHONY: check
+check: style-check type-check doclinter
 
-all: clean-pyc clean-backupfiles check test
-
-ifeq ($(PYTHON), python3)
-check: convert-utils
-	@$(PYTHON) utils/check_sources3.py $(DONT_CHECK) .
-else
-check:
-	@$(PYTHON) utils/check_sources.py $(DONT_CHECK) .
-endif
-
-clean: clean-pyc clean-patchfiles clean-backupfiles clean-generated
-
-clean-pyc:
+.PHONY: clean
+clean: clean
+	# clean Python cache files:
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
+	find . -name __pycache__ -exec rm -rf {} +
 
-clean-patchfiles:
-	find . -name '*.orig' -exec rm -f {} +
-	find . -name '*.rej' -exec rm -f {} +
-
-clean-backupfiles:
+	# clean backup files:
 	find . -name '*~' -exec rm -f {} +
 	find . -name '*.bak' -exec rm -f {} +
+	find . -name '*.swp' -exec rm -f {} +
+	find . -name '*.swo' -exec rm -f {} +
 
-clean-generated:
-	rm -f utils/*3.py*
+	# clean generated:
+	find . -name '.DS_Store' -exec rm -f {} +
 
-pylint:
-	@pylint --rcfile utils/pylintrc sphinx
+	# clean rendered documentation:
+	rm -rf doc/build/
+	rm -rf doc/_build/
+	rm -rf build/sphinx/
 
-ifeq ($(PYTHON), python3)
-reindent: convert-utils
-	@$(PYTHON) utils/reindent3.py -r -n .
-else
-reindent:
-	@$(PYTHON) utils/reindent.py -r -n .
-endif
+	# clean caches:
+	find . -name '.mypy_cache' -exec rm -rf {} +
+	find . -name '.ruff_cache' -exec rm -rf {} +
 
+	# clean test files:
+	rm -rf tests/.coverage
+	rm -rf tests/build
+	rm -rf .tox/
+	rm -rf .cache/
+	find . -name '.pytest_cache' -exec rm -rf {} +
+	rm -f tests/test-server.lock
+
+	# clean build files:
+	rm -rf dist/
+	rm -rf build/
+
+.PHONY: style-check
+style-check:
+	@echo '[+] running ruff' ; ruff check .
+
+.PHONY: format
+format:
+	@ruff format .
+
+.PHONY: type-check
+type-check:
+	@mypy
+
+.PHONY: doclinter
+doclinter:
+	@sphinx-lint --enable all --disable triple-backticks --max-line-length 85 --sort-by filename,line \
+			     $(addprefix -i doc/, _build _static _templates _themes) \
+	             AUTHORS.rst CHANGES.rst CODE_OF_CONDUCT.rst CONTRIBUTING.rst README.rst doc/
+
+.PHONY: test
 test:
-	@cd tests; $(PYTHON) run.py -d -m '^[tT]est' $(TEST)
+	@$(PYTHON) -X dev -X warn_default_encoding -m pytest -v $(TEST)
 
+.PHONY: covertest
 covertest:
-	@cd tests; $(PYTHON) run.py -d -m '^[tT]est' --with-coverage \
-		--cover-package=sphinx $(TEST)
+	@$(PYTHON) -X dev -X warn_default_encoding -m pytest -v --cov=sphinx --junitxml=.junit.xml $(TEST)
 
+.PHONY: build
 build:
-	@$(PYTHON) setup.py build
+	@$(PYTHON) -m build .
 
-ifeq ($(PYTHON), python3)
-convert-utils:
-	@python3 utils/convert.py -i utils/convert.py utils/
+.PHONY: docs
+docs:
+ifndef target
+	$(info You need to provide a target variable, e.g. `make docs target=html`.)
 endif
+	$(MAKE) -C doc $(target)

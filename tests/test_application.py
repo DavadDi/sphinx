@@ -1,90 +1,178 @@
-# -*- coding: utf-8 -*-
-"""
-    test_application
-    ~~~~~~~~~~~~~~~~
+"""Test the Sphinx class."""
 
-    Test the Sphinx class.
+from __future__ import annotations
 
-    :copyright: Copyright 2007-2015 by the Sphinx team, see AUTHORS.
-    :license: BSD, see LICENSE for details.
-"""
+import shutil
+import sys
+from io import StringIO
+from pathlib import Path
+from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
+import pytest
 from docutils import nodes
 
-from sphinx.application import ExtensionError
-from sphinx.domains import Domain
+import sphinx.application
+from sphinx._cli.util.errors import strip_escape_sequences
+from sphinx.errors import ExtensionError
+from sphinx.testing.util import SphinxTestApp
+from sphinx.util import logging
 
-from util import with_app, raises_msg
+if TYPE_CHECKING:
+    import os
+    from typing import Any
 
 
-@with_app()
-def test_events(app, status, warning):
-    def empty():
+def test_instantiation(
+    tmp_path_factory: pytest.TempPathFactory,
+    rootdir: str | os.PathLike[str] | None,
+) -> None:
+    # Given
+    src_dir = tmp_path_factory.getbasetemp() / 'root'
+
+    # special support for sphinx/tests
+    if rootdir and not src_dir.exists():
+        shutil.copytree(Path(str(rootdir)) / 'test-root', src_dir)
+
+    saved_path = sys.path.copy()
+
+    # When
+    app_ = SphinxTestApp(
+        srcdir=src_dir,
+        status=StringIO(),
+        warning=StringIO(),
+    )
+    sys.path[:] = saved_path
+    app_.cleanup()
+
+    # Then
+    assert isinstance(app_, sphinx.application.Sphinx)
+
+
+@pytest.mark.sphinx('html', testroot='root')
+def test_events(app: SphinxTestApp) -> None:
+    def empty() -> None:
         pass
-    raises_msg(ExtensionError, "Unknown event name: invalid",
-               app.connect, "invalid", empty)
 
-    app.add_event("my_event")
-    raises_msg(ExtensionError, "Event 'my_event' already present",
-               app.add_event, "my_event")
+    with pytest.raises(ExtensionError) as excinfo:
+        app.connect('invalid', empty)
+    assert 'Unknown event name: invalid' in str(excinfo.value)
 
-    def mock_callback(a_app, *args):
+    app.add_event('my_event')
+    with pytest.raises(ExtensionError) as excinfo:
+        app.add_event('my_event')
+    assert "Event 'my_event' already present" in str(excinfo.value)
+
+    def mock_callback(a_app: SphinxTestApp, *args: Any) -> str:
         assert a_app is app
         assert emit_args == args
-        return "ret"
-    emit_args = (1, 3, "string")
-    listener_id = app.connect("my_event", mock_callback)
-    assert app.emit("my_event", *emit_args) == ["ret"], "Callback not called"
+        return 'ret'
+
+    emit_args = (1, 3, 'string')
+    listener_id = app.connect('my_event', mock_callback)
+    assert app.emit('my_event', *emit_args) == ['ret'], 'Callback not called'
 
     app.disconnect(listener_id)
-    assert app.emit("my_event", *emit_args) == [], \
-        "Callback called when disconnected"
+    assert app.emit('my_event', *emit_args) == [], 'Callback called when disconnected'
 
 
-@with_app()
-def test_emit_with_nonascii_name_node(app, status, warning):
-    node = nodes.section(names=[u'\u65e5\u672c\u8a9e'])
+@pytest.mark.sphinx('html', testroot='root')
+def test_emit_with_nonascii_name_node(app: SphinxTestApp) -> None:
+    node = nodes.section(names=['\u65e5\u672c\u8a9e'])
     app.emit('my_event', node)
 
 
-@with_app()
-def test_output(app, status, warning):
-    status.truncate(0)  # __init__ writes to status
-    status.seek(0)
-    app.info("Nothing here...")
-    assert status.getvalue() == "Nothing here...\n"
-    status.truncate(0)
-    status.seek(0)
-    app.info("Nothing here...", True)
-    assert status.getvalue() == "Nothing here..."
-
-    old_count = app._warncount
-    app.warn("Bad news!")
-    assert warning.getvalue() == "WARNING: Bad news!\n"
-    assert app._warncount == old_count + 1
-
-
-@with_app()
-def test_extensions(app, status, warning):
+@pytest.mark.sphinx('html', testroot='root')
+def test_extensions(app: SphinxTestApp) -> None:
     app.setup_extension('shutil')
-    assert warning.getvalue().startswith("WARNING: extension 'shutil'")
+    warning = strip_escape_sequences(app.warning.getvalue())
+    assert "extension 'shutil' has no setup() function" in warning
 
 
-@with_app()
-def test_domain_override(app, status, warning):
-    class A(Domain):
-        name = 'foo'
+@pytest.mark.sphinx('html', testroot='root')
+def test_extension_in_blacklist(app: SphinxTestApp) -> None:
+    app.setup_extension('sphinxjp.themecore')
+    msg = strip_escape_sequences(app.warning.getvalue())
+    assert msg.startswith("WARNING: the extension 'sphinxjp.themecore' was")
 
-    class B(A):
-        name = 'foo'
 
-    class C(Domain):
-        name = 'foo'
+@pytest.mark.sphinx('html', testroot='add_source_parser')
+def test_add_source_parser(app: SphinxTestApp) -> None:
+    assert set(app.config.source_suffix) == {'.rst', '.test'}
 
-    # No domain know named foo.
-    raises_msg(ExtensionError, 'domain foo not yet registered',
-               app.override_domain, A)
-    assert app.add_domain(A) is None
-    assert app.override_domain(B) is None
-    raises_msg(ExtensionError, 'new domain not a subclass of registered '
-               'foo domain', app.override_domain, C)
+    # .rst; only in :confval:`source_suffix`
+    assert '.rst' not in app.registry.get_source_parsers()
+    assert app.registry.source_suffix['.rst'] == 'restructuredtext'
+
+    # .test; configured by API
+    assert app.registry.source_suffix['.test'] == 'test'
+    assert 'test' in app.registry.get_source_parsers()
+    assert app.registry.get_source_parsers()['test'].__name__ == 'TestSourceParser'
+
+
+@pytest.mark.sphinx('html', testroot='extensions')
+def test_add_is_parallel_allowed(app: SphinxTestApp) -> None:
+    logging.setup(app, app.status, app.warning)
+
+    assert app.is_parallel_allowed('read') is True
+    assert app.is_parallel_allowed('write') is True
+    assert app.warning.getvalue() == ''
+
+    app.setup_extension('read_parallel')
+    assert app.is_parallel_allowed('read') is True
+    assert app.is_parallel_allowed('write') is True
+    assert app.warning.getvalue() == ''
+    app.extensions.pop('read_parallel')
+
+    app.setup_extension('write_parallel')
+    assert app.is_parallel_allowed('read') is False
+    assert app.is_parallel_allowed('write') is True
+    assert (
+        'the write_parallel extension does not declare if it is safe '
+        "for parallel reading, assuming it isn't - please "
+    ) in app.warning.getvalue()
+    app.extensions.pop('write_parallel')
+    app.warning.truncate(0)  # reset warnings
+
+    app.setup_extension('read_serial')
+    assert app.is_parallel_allowed('read') is False
+    assert (
+        'the read_serial extension is not safe for parallel reading'
+    ) in app.warning.getvalue()
+    app.warning.truncate(0)  # reset warnings
+    assert app.is_parallel_allowed('write') is True
+    assert app.warning.getvalue() == ''
+    app.extensions.pop('read_serial')
+
+    app.setup_extension('write_serial')
+    assert app.is_parallel_allowed('read') is False
+    assert app.is_parallel_allowed('write') is False
+    assert (
+        'the write_serial extension does not declare if it is safe '
+        "for parallel reading, assuming it isn't - please "
+    ) in app.warning.getvalue()
+    app.extensions.pop('write_serial')
+    app.warning.truncate(0)  # reset warnings
+
+
+@pytest.mark.sphinx('dummy', testroot='root')
+def test_build_specific(app: SphinxTestApp) -> None:
+    app.builder.build = Mock()  # type: ignore[method-assign,misc]
+    filenames = [
+        app.srcdir / 'index.txt',                      # normal
+        app.srcdir / 'images',                         # without suffix
+        app.srcdir / 'notfound.txt',                   # not found
+        app.srcdir / 'img.png',                        # unknown suffix
+        Path('/index.txt'),                            # external file
+        app.srcdir / 'subdir',                         # directory
+        app.srcdir / 'subdir/includes.txt',            # file on subdir
+        app.srcdir / 'subdir/../subdir/excluded.txt',  # not normalized
+    ]  # fmt: skip
+    app.build(False, filenames)
+
+    expected = ['index', 'subdir/includes', 'subdir/excluded']
+    app.builder.build.assert_called_with(
+        expected,
+        method='specific',
+        summary='3 source files given on command line',
+    )
